@@ -1,11 +1,12 @@
 package ru.otus.coroutineshomework.ui.login
 
-import android.util.Log
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ru.otus.coroutineshomework.ui.login.data.Credentials
@@ -13,8 +14,31 @@ import ru.otus.coroutineshomework.ui.login.data.User
 
 class LoginViewModel(private val loginApi: LoginApi = LoginApi()) : ViewModel() {
 
-    private val _state = MutableLiveData<LoginViewState>(LoginViewState.Login())
-    val state: LiveData<LoginViewState> = _state
+    private val stateFlow = MutableStateFlow<LoginViewState>(LoginViewState.Login())
+    val state: StateFlow<LoginViewState> = stateFlow
+
+    private fun loginFlow(credentials: Credentials?): Flow<LoginViewState> {
+        return flow {
+            try {
+                if (credentials != null) {
+                    emit(LoginViewState.LoggingIn)
+                    val user: User = withContext(Dispatchers.IO) {
+                        loginApi.login(credentials)
+                    }
+                    emit(LoginViewState.Content(user))
+                } else {
+                    emit(LoginViewState.LoggingOut)
+                    withContext(Dispatchers.IO) {
+                        loginApi.logout()
+                    }
+                    emit(LoginViewState.Login())
+                }
+            }
+             catch (exception: Exception) {
+                emit(LoginViewState.Login(error = exception))
+            }
+        }
+    }
 
     /**
      * Login to the network
@@ -23,23 +47,8 @@ class LoginViewModel(private val loginApi: LoginApi = LoginApi()) : ViewModel() 
      */
     fun login(name: String, password: String) {
         viewModelScope.launch {
-            _state.value = LoginViewState.LoggingIn
-            Log.i("login state", _state.value.toString())
-            try {
-                if (name == "main") {
-                    loginApi.login(Credentials(name, password))
-                }
-                else {
-                    val user: User = withContext(Dispatchers.IO) {
-                        loginApi.login(Credentials(name, password))
-                    }
-                    _state.value = LoginViewState.Content(user)
-                    Log.i("login state", _state.value.toString())
-                }
-            }
-            catch (exception: Exception){
-                _state.value = LoginViewState.Login(error = exception)
-                Log.i("login state", _state.value.toString())
+            loginFlow(Credentials(name, password)).collect {
+                stateFlow.value = it
             }
         }
     }
@@ -49,18 +58,8 @@ class LoginViewModel(private val loginApi: LoginApi = LoginApi()) : ViewModel() 
      */
     fun logout() {
         viewModelScope.launch {
-            _state.value = LoginViewState.LoggingOut
-            Log.i("login state", _state.value.toString())
-            try {
-                withContext(Dispatchers.IO) {
-                    loginApi.logout()
-                }
-                _state.value =LoginViewState.Login()
-                Log.i("login state", _state.value.toString())
-            }
-            catch (exception: Exception){
-                _state.value = LoginViewState.Login(error = exception)
-                Log.i("login state", _state.value.toString())
+            loginFlow(null).collect {
+                stateFlow.value = it
             }
         }
     }
