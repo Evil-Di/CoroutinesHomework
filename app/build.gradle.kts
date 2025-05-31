@@ -37,6 +37,7 @@ android {
 }
 
 dependencies {
+    implementation(libs.androidx.media3.common.ktx)
     coreLibraryDesugaring(libs.desugar)
 
     implementation(libs.androidx.core.ktx)
