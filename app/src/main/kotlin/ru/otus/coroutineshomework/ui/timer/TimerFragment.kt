@@ -10,11 +10,14 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import ru.otus.coroutineshomework.databinding.FragmentTimerBinding
 import java.util.Locale
+import kotlin.coroutines.coroutineContext
 import kotlin.properties.Delegates
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.ZERO
@@ -83,13 +86,17 @@ class TimerFragment : Fragment() {
         outState.putBoolean(STARTED, started)
     }
 
+    private fun createTimerFlow(initial: Long): Flow<Duration> = flow {
+        while(coroutineContext.isActive) {
+            emit((System.currentTimeMillis()-initial).milliseconds)
+            delay(15)
+        }
+    }
+
     private fun startTimer() {
         job = lifecycle.coroutineScope.launch {
-            val startTime = System.currentTimeMillis()
-            while(true) {
-                ensureActive()
-                timeFlow.emit((System.currentTimeMillis()-startTime).milliseconds)
-                delay(15)
+            createTimerFlow(System.currentTimeMillis()).collect {
+                timeFlow.value = it
             }
         }
     }

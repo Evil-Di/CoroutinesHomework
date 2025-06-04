@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -30,7 +31,9 @@ class NetworkViewModel : ViewModel() {
                     emulateBlockingNetworkRequest()
                 })
             }
-            val results = resultList.mapNotNull { it.await().getOrNull() }
+
+            val results = resultList.awaitAll().mapNotNull { it.getOrNull() }
+
             _running.value = false
 
             if (results.isNotEmpty()) {
